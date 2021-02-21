@@ -2976,6 +2976,31 @@ namespace DOL.GS
 		{
 			if (!base.AddToWorld()) return false;
 
+			NpcTemplate checkNPCTemplate = null;
+			if (this is GamePet == false)
+			{
+				if (NPCTemplate != null)
+				{
+					checkNPCTemplate = NpcTemplateMgr.GetTemplate(NPCTemplate.TemplateId);
+					if (checkNPCTemplate != null)
+					{
+						RespawnChance = checkNPCTemplate.RespawnChance;
+						RespawnOffSet = checkNPCTemplate.RespawnOffSet;
+
+					}
+					else
+					{
+						RespawnChance = 100;
+						RespawnOffSet = 100;
+					}
+				}
+				else
+				{
+					RespawnChance = 100;
+					RespawnOffSet = 100;
+				}
+			}
+
 			if (MAX_PASSENGERS > 0)
 				Riders = new GamePlayer[MAX_PASSENGERS];
 
@@ -4126,6 +4151,10 @@ namespace DOL.GS
 					DropLoot(killer);
 
 				Message.SystemToArea(this, GetName(0, true) + " dies!", eChatType.CT_PlayerDied, killer);
+
+				if (killer is GamePlayer && ServerProperties.Properties.ENABLE_DEBUG)
+					((GamePlayer)killer).Out.SendMessage("[Debug] " + GetName(0, true) + " say: I will try back each " + (m_respawnInterval / 1000) + " secunds with " + RespawnChance + " % base chance to spawn. Each missed try to spawn will add " + RespawnOffSet + "% more chance to spawn", eChatType.CT_PlayerDied, eChatLoc.CL_SystemWindow);
+
 				if (killer is GamePlayer)
 					((GamePlayer)killer).Out.SendMessage(GetName(0, true) + " dies!", eChatType.CT_PlayerDied, eChatLoc.CL_SystemWindow);
 			}
@@ -4442,6 +4471,37 @@ namespace DOL.GS
 			}
 		}
 
+		protected int m_respawnChance;
+		public int RespawnChance
+		{
+			get
+			{
+				return m_respawnChance;
+			}
+			set
+			{
+				if (value > 100)
+					value = 100;
+				m_respawnChance = value;
+			}
+		}
+		protected int m_respawnOffSet;
+		public int RespawnOffSet
+		{
+			get
+			{
+				return m_respawnOffSet;
+			}
+			set
+			{
+				if (value > 100)
+					value = 100;
+				if (value < 0)
+					value = 0;
+				m_respawnOffSet = value;
+			}
+		}
+
 		/// <summary>
 		/// Starts the Respawn Timer
 		/// </summary>
@@ -4480,19 +4540,28 @@ namespace DOL.GS
 		/// <returns>the new interval</returns>
 		protected virtual int RespawnTimerCallback(RegionTimer respawnTimer)
 		{
-			int dummy;
-			// remove Mob from "respawning"
-			CurrentRegion.MobsRespawning.TryRemove(this, out dummy);
 
 			lock (m_respawnTimerLock)
 			{
 				if (m_respawnTimer != null)
 				{
+					if (RespawnChance < 100)
+					{
+						if (!Util.Chance(RespawnChance))
+						{
+							int respawnInt = RespawnInterval;
+							RespawnChance += RespawnOffSet;
+							return respawnInt;
+						}
+					}
 					m_respawnTimer.Stop();
 					m_respawnTimer = null;
+
 				}
 			}
-
+			int dummy;
+			// remove Mob from "respawning"
+			CurrentRegion.MobsRespawning.TryRemove(this, out dummy);
 			//DOLConsole.WriteLine("respawn");
 			//TODO some real respawn handling
 			if (IsAlive) return 0;

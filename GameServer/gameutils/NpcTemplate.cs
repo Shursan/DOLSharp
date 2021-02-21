@@ -79,6 +79,8 @@ namespace DOL.GS
 		protected int m_tetherRange;
 		protected bool m_replaceMobValues;
 		protected byte m_visibleActiveWeaponSlot;
+		protected int m_respawnOffSet;
+		protected int m_respawnChance;
 
 		/// <summary>
 		/// Constructs a new NpcTemplate
@@ -192,6 +194,8 @@ namespace DOL.GS
 			m_visibleActiveWeaponSlot = data.VisibleWeaponSlots;
 			
 			m_replaceMobValues = data.ReplaceMobValues;
+			m_respawnChance = data.RespawnChance;
+			m_respawnOffSet = data.RespawnOffSet;
 		}
 
 
@@ -333,7 +337,23 @@ namespace DOL.GS
 		public NpcTemplate()
 			: base()
 		{ }
+		/// <summary>
+		/// Gets the npctemplate base Respawn Chance
+		/// </summary>
+		public int RespawnChance
+		{
+			get { return m_respawnChance; }
+			set { m_respawnChance = value; }
+		}
 
+		/// <summary>
+		/// Gets the npctemplate Respawn Offset (added at respawn chanceeach addtoworld fail)
+		/// </summary>
+		public int RespawnOffSet
+		{
+			get { return m_respawnOffSet; }
+			set { m_respawnOffSet = value; }
+		}
 		/// <summary>
 		/// Gets the npc template ID
 		/// </summary>
@@ -709,8 +729,10 @@ namespace DOL.GS
 			tmp.Size = Size;
 			tmp.Strength = Strength;
 			tmp.TetherRange = TetherRange;
+			tmp.RespawnChance = RespawnChance;
+			tmp.RespawnOffSet = RespawnOffSet;
 
-			if( m_abilities != null && m_abilities.Count > 0 )
+			if ( m_abilities != null && m_abilities.Count > 0 )
 			{
 				string serializedAbilities = "";
 

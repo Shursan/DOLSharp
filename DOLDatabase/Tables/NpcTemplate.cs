@@ -77,17 +77,45 @@ namespace DOL.Database
 		private byte m_visibleWeaponSlots = 0;
 		private bool m_replaceMobValues =  false;
 		private string m_packageID = string.Empty;
-        #endregion Variables
+		private int m_respawnOffSet;
+		private int m_respawnChance;
+		#endregion Variables
 
-        /// <summary>
+		/// <summary>
 		/// Constructor
 		/// </summary>
 		public DBNpcTemplate()
 		{
 		}
 
-        #region Properties
-        /// <summary>
+		#region Properties
+		/// <summary>
+		/// Respawn Chance Base
+		/// </summary>
+		[DataElement(AllowDbNull = false)]
+		public int RespawnChance
+		{
+			get { return m_respawnChance; }
+			set
+			{
+				Dirty = true;
+				m_respawnChance = value;
+			}
+		}
+		/// <summary>
+		/// Respawn Chance Offset
+		/// </summary>
+		[DataElement(AllowDbNull = false)]
+		public int RespawnOffSet
+		{
+			get { return m_respawnOffSet; }
+			set
+			{
+				Dirty = true;
+				m_respawnOffSet = value;
+			}
+		}
+		/// <summary>
 		/// Template ID
 		/// </summary>
 		[DataElement(AllowDbNull = false, Index = true)]

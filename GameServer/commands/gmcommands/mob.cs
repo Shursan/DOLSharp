@@ -123,8 +123,11 @@ namespace DOL.GS.Commands
 	     "'/mob trigger <type> <chance> <emote> <text>' adds a trigger to targeted mob class.  Use '/mob trigger help' for more info.",
 	     "'/mob trigger info' Give trigger informations.",
 	     "'/mob trigger remove <id>' Remove a trigger.",
-	     "'/mob ownerid <id>' Sets and saves the OwnerID for this mob."
-	    )]
+	     "'/mob ownerid <id>' Sets and saves the OwnerID for this mob.",
+		 "'/mob spawnchance number 1-100. Is Base Spawn Chance at each respawn interval.",
+		 "'/mob spawnchanceoffset number 1-100. Will get added each respawn interval (if not addtoworld) to ChanceSpawn."
+
+		)]
 	public class MobCommandHandler : AbstractCommandHandler, ICommandHandler
 	{
 		private static readonly log4net.ILog Log = log4net.LogManager.GetLogger(System.Reflection.MethodBase.GetCurrentMethod().DeclaringType);
@@ -261,6 +264,8 @@ namespace DOL.GS.Commands
 						case "reload": reload(client, targetMob, args); break;
 						case "findname": findname(client, args); break;
 						case "trigger": trigger(client, targetMob, args); break;
+						case "spawnchance": spawnchance(client, targetMob, args); break;
+						case "spawnchanceoffset": spawnchanceOffSet(client, targetMob, args); break;
 					default:
 						DisplaySyntax(client);
 						return;
@@ -273,7 +278,73 @@ namespace DOL.GS.Commands
 			}
 		}
 
+		private void spawnchance(GameClient client, GameNPC targetMob, string[] args)
+		{
+			if (args.Length < 3)
+			{
+				DisplaySyntax(client, args[1]);
+				return;
+			}
+			int id;
+			if (Int32.TryParse(args[2], out id) == false)
+			{
+				DisplaySyntax(client, args[1], args[2]);
+				return;
+			}
+			if (id > 100)
+				id = 100;
+			if (id < 0)
+				id = 0;
+			if (targetMob.NPCTemplate == null)
+				DisplayMessage(client, "No npctemplate assigned for " + targetMob.Name, new object[] { });
 
+			INpcTemplate template = NpcTemplateMgr.GetTemplate(targetMob.NPCTemplate.TemplateId);
+
+			if (template == null)
+			{
+				DisplayMessage(client, "No npctemplate found for " + targetMob.Name + "npctemplateid= " + targetMob.NPCTemplate.TemplateId, new object[] { });
+				return;
+			}
+
+			targetMob.NPCTemplate.RespawnChance = id;
+			targetMob.RespawnChance = id;
+			targetMob.NPCTemplate.SaveIntoDatabase();
+			DisplayMessage(client, "Updated npc spawn chance= " + id + " based on template " + targetMob.NPCTemplate.TemplateId, new object[] { });
+		}
+
+		private void spawnchanceOffSet(GameClient client, GameNPC targetMob, string[] args)
+		{
+			if (args.Length < 3)
+			{
+				DisplaySyntax(client, args[1]);
+				return;
+			}
+			int id;
+			if (Int32.TryParse(args[2], out id) == false)
+			{
+				DisplaySyntax(client, args[1], args[2]);
+				return;
+			}
+			if (id > 100)
+				id = 100;
+			if (id < 0)
+				id = 0;
+			if (targetMob.NPCTemplate == null)
+				DisplayMessage(client, "No npctemplate assigned for " + targetMob.Name, new object[] { });
+
+			INpcTemplate template = NpcTemplateMgr.GetTemplate(targetMob.NPCTemplate.TemplateId);
+
+			if (template == null)
+			{
+				DisplayMessage(client, "No npctemplate found for " + targetMob.Name + "npctemplateid= " + targetMob.NPCTemplate.TemplateId, new object[] { });
+				return;
+			}
+
+			targetMob.NPCTemplate.RespawnOffSet = id;
+			targetMob.RespawnOffSet = id;
+			targetMob.NPCTemplate.SaveIntoDatabase();
+			DisplayMessage(client, "Updated npc spawn chance OffSet= " + id + " based on template " + targetMob.NPCTemplate.TemplateId, new object[] { });
+		}
 		private void create(GameClient client, string[] args)
 		{
 			string theType = "DOL.GS.GameNPC";
@@ -1281,25 +1352,63 @@ namespace DOL.GS.Commands
 			info.Add(" + Roaming Range: " + targetMob.RoamingRange);
 			//info.Add(" + Tether Range: " + targetMob.TetherRange);
 
-			TimeSpan respawn = TimeSpan.FromMilliseconds(targetMob.RespawnInterval);
+			TimeSpan minSpawn = TimeSpan.FromMilliseconds(targetMob.RespawnInterval);
 
-			if (targetMob.RespawnInterval <= 0)
-				info.Add(" + Respawn: NPC will not respawn");
-			else
+			if (targetMob.NPCTemplate != null)
 			{
-				string days = "";
-				string hours = "";
+				long respawnmax = targetMob.RespawnInterval;
+				TimeSpan maxSpawn = TimeSpan.FromMilliseconds(respawnmax);
 
-				if (respawn.Days > 0)
-					days = respawn.Days + " days ";
+				if (targetMob.NPCTemplate.RespawnOffSet > 0)
+					for (int i = targetMob.NPCTemplate.RespawnChance; i < 100; i += targetMob.NPCTemplate.RespawnOffSet)
+						respawnmax += targetMob.RespawnInterval;
+				else
+				{
+					info.Add(" + Can not calculate Max Respawn. RespawnOffSet value could not  be 0 or <");
+				}
+				if (respawnmax > targetMob.RespawnInterval)
+					maxSpawn = TimeSpan.FromMilliseconds(respawnmax);
 
-				if (respawn.Hours > 0)
-					hours = respawn.Hours + " hours ";
+				string mindays = "";
+				string minhours = "";
+				string maxdays = "";
+				string maxhours = "";
 
-				info.Add(" + Respawn: " + days + hours + respawn.Minutes + " minutes " + respawn.Seconds + " seconds");
+				if (minSpawn.Days > 0)
+					mindays = minSpawn.Days + " days ";
+
+				if (minSpawn.Hours > 0)
+					minhours = minSpawn.Hours + " hours ";
+
+				if (maxSpawn.Days > 0)
+					maxdays = maxSpawn.Days + " days ";
+
+				if (maxSpawn.Hours > 0)
+					maxhours = maxSpawn.Hours + " hours ";
+
+				info.Add(" + Minimum Respawn: " + mindays + minhours + minSpawn.Minutes + " minutes " + minSpawn.Seconds + " seconds");
+				info.Add(" + Maximum Respawn: " + maxdays + maxhours + maxSpawn.Minutes + " minutes " + maxSpawn.Seconds + " seconds");
 				info.Add(" + SpawnPoint:  " + targetMob.SpawnPoint.X + ", " + targetMob.SpawnPoint.Y + ", " + targetMob.SpawnPoint.Z);
 			}
+			else
+			{
+				if (targetMob.RespawnInterval <= 0)
+					info.Add(" + Respawn: NPC will not respawn");
+				else
+				{
+					string days = "";
+					string hours = "";
 
+					if (minSpawn.Days > 0)
+						days = minSpawn.Days + " days ";
+
+					if (minSpawn.Hours > 0)
+						hours = minSpawn.Hours + " hours ";
+
+					info.Add(" + Respawn: " + days + hours + minSpawn.Minutes + " minutes " + minSpawn.Seconds + " seconds");
+					info.Add(" + SpawnPoint:  " + targetMob.SpawnPoint.X + ", " + targetMob.SpawnPoint.Y + ", " + targetMob.SpawnPoint.Z);
+				}
+			}
 			info.Add(" ");
 			info.Add(" +     STR      /      CON      /      DEX      /      QUI");
 			info.Add(" + " + targetMob.Strength + " (" + targetMob.GetModified(eProperty.Strength) + ")  /  " + targetMob.Constitution + " (" + targetMob.GetModified(eProperty.Constitution) + ")  /  " + targetMob.Dexterity + " (" + targetMob.GetModified(eProperty.Dexterity) + ")  /  " + targetMob.Quickness + " (" + targetMob.GetModified(eProperty.Quickness) + ")");
